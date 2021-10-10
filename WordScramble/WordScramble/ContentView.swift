@@ -16,6 +16,8 @@ struct ContentView: View {
     @State private var errorMessage = ""
     @State private var showingError = false
     
+    @State private var score = 0
+    
     var body: some View {
         NavigationView {
             VStack {
@@ -24,15 +26,26 @@ struct ContentView: View {
                     .autocapitalization(.none)
                     .padding()
                 
-                List(usedWords, id: \.self) {
-                    Image(systemName: "\($0.count).circle")
-                    Text($0)
+                List(usedWords, id: \.self) { word in
+                    HStack {
+                        Image(systemName: "\(word.count).circle")
+                        Text(word)
+                    }
                 }
+                
+                Text("Score: \(score)")
             }
             .navigationBarTitle(rootWord)
             .onAppear(perform: startGame)
             .alert(isPresented: $showingError) {
                 Alert(title: Text(errorTitle), message: Text(errorMessage), dismissButton: .default(Text("OK")))
+            }
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Start new game") {
+                        startGame()
+                    }
+                }
             }
         }
     }
@@ -57,7 +70,13 @@ struct ContentView: View {
             return
         }
         
+        guard !isStartOfWord(word: answer) else {
+            wordError(title: "Word is prefix of root word", message: "Try another word")
+            return
+        }
+        
         usedWords.insert(answer, at: 0)
+        score += answer.count
         newWord = ""
     }
     
@@ -66,6 +85,7 @@ struct ContentView: View {
             if let startWords = try? String(contentsOf: startWordsURL) {
                 let allWords = startWords.components(separatedBy: "\n")
                 rootWord = allWords.randomElement() ?? "silkworm"
+                score = 0
                 return
             }
         }
@@ -90,7 +110,14 @@ struct ContentView: View {
         return true
     }
     
+    func isStartOfWord(word: String) -> Bool {
+        return rootWord.lowercased().hasPrefix(word)
+    }
+    
     func isReal(word: String) -> Bool {
+        if word.count <= 3 {
+            return false
+        }
         let checker = UITextChecker()
         let range = NSRange(location: 0, length: word.utf16.count)
         let misspelledRange = checker.rangeOfMisspelledWord(in: word, range: range, startingAt: 0, wrap: false, language: "en")
